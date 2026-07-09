@@ -432,7 +432,8 @@
         {:editor editor})
 
       :else
-      (let [nb (buf/insert-char b row col (first key-str))]
+      (let [_ (try (spit "/tmp/vitambo-dispatch.log" (str "INSERT else: row=" row " col=" col " key=" key-str "\n") :append true) (catch Exception _))
+            nb (buf/insert-char b row col (first key-str))]
         {:editor (update-active-split editor
                    (fn [s] (-> s (assoc :buffer nb :cursor {:row row :col (inc col)})
                               (update :insert-text str (first key-str)))))}))))
@@ -678,6 +679,7 @@
 
 (defn handle-key [editor key-str]
   (let [split (active-split editor) cur-mode (:mode split mode/normal)]
+    (try (spit "/tmp/vitambo-dispatch.log" (str "DISPATCH handle-key: key=" (pr-str key-str) " mode=" cur-mode "\n") :append true) (catch Exception _))
     (case cur-mode
       mode/normal (handle-key-normal editor key-str)
       mode/insert (handle-key-insert editor key-str)
