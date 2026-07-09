@@ -1,0 +1,12 @@
+(require '[vitambo.motion :as m])
+(let [lines ["hello world foo bar" "second line" "third" "a b c d e"]]
+  (println "h:" (m/move-h lines 1 5 2))
+  (println "l:" (m/move-l lines 1 5 3))
+  (println "j:" (m/move-j lines 0 0 2))
+  (println "k:" (m/move-k lines 2 3 1))
+  (println "w:" (m/move-w lines 0 0 1))
+  (println "b:" (m/move-b lines 0 12 1))
+  (println "0:" (m/move-0 lines 1 5 nil))
+  (println "$:" (m/move-$ lines 1 5 nil))
+  (println "gg:" (m/move-gg lines 0 0 1))
+  (println "G:" (m/move-G lines 0 0 nil)))
