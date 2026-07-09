@@ -170,11 +170,11 @@
                                          (catch Exception e
                                            (log "  DISPATCH ERROR: " (.getMessage e))
                                            {:editor @editor-state}))]
-                          (log "  result type=" (type result) " has :editor=" (contains? result :editor))
+                          (log "  result type=" (type result) " has :editor=" (contains? result :editor) " cursor=" (:cursor (ed/active-split (if (:editor result) (:editor result) result))))
                           (when (map? result)
                             (if (:editor result)
                               (do (reset! editor-state (:editor result))
-                                  (log "  state UPDATED, mode=" (get-in @editor-state [:splits 0 :mode])))
+                                  (log "  state UPDATED, mode=" (get-in @editor-state [:splits 0 :mode]) " cursor=" (get-in @editor-state [:splits 0 :cursor])))
                               (do (reset! editor-state result)
                                   (log "  state UPDATED (direct), mode=" (get-in @editor-state [:splits 0 :mode]))))
                             (when (false? (:running @editor-state true))
