@@ -156,7 +156,7 @@
         (.run tui
           (reify EventHandler
             (handle [this event runner]
-              (log "handle called with event: " (type event))
+              (log "handle ev: " (type event))
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
                   ;; Quit on Ctrl+C (either via isCtrlC() or direct char code 3)
