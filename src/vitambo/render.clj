@@ -45,21 +45,23 @@
           9 (do (log "key-event->str: TAB") "\t")
           (do (log "key-event->str: char " c " = " (str ch))
               (str ch))))
-      ;; Non-character key - check key code
-      (let [code (.code event)]
-        (if code
-          (do (log "key-event->str: code=" code)
-              (case code
-                (:UP) "k"
-                (:DOWN) "j"
-                (:LEFT) "h"
-                (:RIGHT) "l"
-                (:ENTER :NEWLINE) "\n"
-                (:TAB) "\t"
-                (:ESCAPE) "\u001b"
-                (:BACKSPACE :DELETE) "\u007f"
-                nil))
-          (do (log "key-event->str: no character, no code") nil))))))
+      ;; Non-character key - check key code (Java enum, convert to keyword)
+      (if-let [code (.code event)]
+        (let [kwd (keyword (str code))]
+          (log "key-event->str: code=" code " kwd=" kwd)
+          (case kwd
+            :UP "k"
+            :DOWN "j"
+            :LEFT "h"
+            :RIGHT "l"
+            :ENTER "\n"
+            :NEWLINE "\n"
+            :TAB "\t"
+            :ESCAPE "\u001b"
+            :BACKSPACE "\u007f"
+            :DELETE "\u007f"
+            nil))
+        (do (log "key-event->str: no character, no code") nil)))))
 
 (defn- key-event->ctrl-str
   "Get Ctrl+letter code from a KeyEvent.
