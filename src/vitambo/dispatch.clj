@@ -680,13 +680,13 @@
 (defn handle-key [editor key-str]
   (let [split (active-split editor) cur-mode (:mode split mode/normal)]
     (try (spit "/tmp/vitambo-dispatch.log" (str "DISPATCH handle-key: key=" (pr-str key-str) " mode=" cur-mode "\n") :append true) (catch Exception _))
-    (case cur-mode
-      mode/normal (handle-key-normal editor key-str)
-      mode/insert (handle-key-insert editor key-str)
-      mode/visual-char (handle-key-visual editor key-str mode/visual-char)
-      mode/visual-line (handle-key-visual editor key-str mode/visual-line)
-      mode/visual-block (handle-key-visual editor key-str mode/visual-block)
-      mode/command (handle-key-cmdline editor key-str (:cmdline-type editor))
-      mode/search (handle-key-cmdline editor key-str (:cmdline-type editor))
-      mode/operator-pending (handle-key-operator editor key-str)
-      (handle-key-normal editor key-str))))
+    (cond
+      (= cur-mode mode/normal) (handle-key-normal editor key-str)
+      (= cur-mode mode/insert) (handle-key-insert editor key-str)
+      (= cur-mode mode/visual-char) (handle-key-visual editor key-str mode/visual-char)
+      (= cur-mode mode/visual-line) (handle-key-visual editor key-str mode/visual-line)
+      (= cur-mode mode/visual-block) (handle-key-visual editor key-str mode/visual-block)
+      (= cur-mode mode/command) (handle-key-cmdline editor key-str (:cmdline-type editor))
+      (= cur-mode mode/search) (handle-key-cmdline editor key-str (:cmdline-type editor))
+      (= cur-mode mode/operator-pending) (handle-key-operator editor key-str)
+      :else (handle-key-normal editor key-str))))
