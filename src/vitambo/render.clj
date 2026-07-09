@@ -4,7 +4,8 @@
            (dev.tamboui.tui.event KeyEvent KeyCode)
            (dev.tamboui.tui EventHandler Renderer)
            (dev.tamboui.widgets.paragraph Paragraph)
-           (dev.tamboui.terminal Frame))
+           (dev.tamboui.terminal Frame)
+           (dev.tamboui.layout Rect))
   (:require [clojure.string :as str]
             [vitambo.editor :as ed]
             [vitambo.buffer :as buf]
@@ -95,7 +96,7 @@
                           (str marker (format "%3d" (inc abs-line)) " " truncated))))]
       (.renderWidget frame
         (Paragraph/from lines-str)
-        (.withY (.withX area 0) 0)))
+        (Rect. 0 0 width content-height)))
     ;; Render status line
     (let [status-y (- height (if has-cmdline? 3 2))]
       (.renderWidget frame
@@ -103,7 +104,7 @@
                             (when has-cmdline?
                               (str "\n" cmdline
                                    (when (not-empty msg) (str "  " msg))))))
-        (.withY (.withX area 0) (max 0 status-y))))))
+        (Rect. 0 (max 0 status-y) width 2)))))
 
 (defn create-tui-config
   "Create the TuiConfig for the vim editor."
