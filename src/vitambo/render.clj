@@ -166,11 +166,11 @@
                     (let [k (key-event->str ke)]
                       (log "  key-string=" (pr-str k))
                       (when (and k (not-empty k))
-                        (let [result (try (dispatch/handle-key @editor-state k)
+                        (let [editor-before @editor-state ^::unused _ (log "BEFORE-RESET: cursor=" (get-in editor-before [:splits 0 :cursor]) " lines=" (get-in editor-before [:splits 0 :buffer :lines])) result (try (dispatch/handle-key editor-before k)
                                          (catch Exception e
                                            (log "  DISPATCH ERROR: " (.getMessage e))
                                            {:editor @editor-state}))]
-                          (log "  result type=" (type result) " has :editor=" (contains? result :editor) " cursor=" (:cursor (ed/active-split (if (:editor result) (:editor result) result))))
+                          (log "  result type=" (type result) " has :editor=" (contains? result :editor))
                           (when (map? result)
                             (if (:editor result)
                               (do (reset! editor-state (:editor result))
