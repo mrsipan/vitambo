@@ -132,7 +132,8 @@
             (handle [this event runner]
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
-                  (if (.isCtrlC ke)
+                  ;; Quit on Ctrl+C (either via isCtrlC() or direct char code 3)
+                  (if (or (.isCtrlC ke) (= (.character ke) \u0003))
                     (do (.quit runner) true)
                     (let [key-str (or (key-event->str ke) "")
                           ctrl-str (key-event->ctrl-str ke)
