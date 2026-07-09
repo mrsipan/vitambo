@@ -12,34 +12,54 @@
             [vitambo.mode :as mode]
             [vitambo.dispatch :as dispatch]))
 
+(def ^:private log-file "/tmp/vitambo-debug.log")
+
+(defn- log
+  "Write a debug message to the log file."
+  [& msgs]
+  (try
+    (spit log-file (str (java.time.LocalDateTime/now) " " (str/join " " msgs) "\n") :append true)
+    (catch Exception _)))
+
+(defn- log-clear!
+  "Clear the debug log."
+  []
+  (try (spit log-file "") (catch Exception _)))
+
 (defn- key-event->str
   "Convert a KeyEvent to a string for the dispatcher."
   [^KeyEvent event]
   (let [ch (.character event)]
+    (log "key-event->str: char=" (pr-str ch) " int=" (int (or ch 0))
+         " hasCtrl=" (.hasCtrl event) " isCtrlC=" (.isCtrlC event)
+         " code=" (.code event))
     (if (and ch (not= (int ch) 0))
       ;; Regular character
       (let [c (int ch)]
         (case c
-          10 "\n"    ;; Enter/Newline
-          13 "\n"    ;; Carriage return
-          27 "\u001b"  ;; Escape
-          8 "\u007f"  ;; Backspace (BS)
-          127 "\u007f" ;; Delete/Backspace (DEL)
-          9 "\t"     ;; Tab
-          (str ch)))
+          10 (do (log "key-event->str: ENTER") "\n")
+          13 (do (log "key-event->str: CR") "\n")
+          27 (do (log "key-event->str: ESC") "\u001b")
+          8 (do (log "key-event->str: BS") "\u007f")
+          127 (do (log "key-event->str: DEL") "\u007f")
+          9 (do (log "key-event->str: TAB") "\t")
+          (do (log "key-event->str: char " c " = " (str ch))
+              (str ch))))
       ;; Non-character key - check key code
       (let [code (.code event)]
-        (when code
-          (case code
-            (:UP) "k"
-            (:DOWN) "j"
-            (:LEFT) "h"
-            (:RIGHT) "l"
-            (:ENTER :NEWLINE) "\n"
-            (:TAB) "\t"
-            (:ESCAPE) "\u001b"
-            (:BACKSPACE :DELETE) "\u007f"
-            nil))))))
+        (if code
+          (do (log "key-event->str: code=" code)
+              (case code
+                (:UP) "k"
+                (:DOWN) "j"
+                (:LEFT) "h"
+                (:RIGHT) "l"
+                (:ENTER :NEWLINE) "\n"
+                (:TAB) "\t"
+                (:ESCAPE) "\u001b"
+                (:BACKSPACE :DELETE) "\u007f"
+                nil))
+          (do (log "key-event->str: no character, no code") nil))))))
 
 (defn- key-event->ctrl-str
   "Get Ctrl+letter code from a KeyEvent.
@@ -77,6 +97,7 @@
   (let [split (ed/active-split editor)
         b (:buffer split)
         c (:cursor split)
+        m (:mode split mode/normal)
         scroll-top (:scroll-top split 0)
         area (.area frame)
         width (.width area)
@@ -89,6 +110,7 @@
         msg (:message editor "")
         has-cmdline? (or (not-empty cmdline) (not-empty msg))
         text-width (- width 5)]
+    (log "render: mode=" m " cursor=" c " lines=" total-lines)
     ;; Render buffer content
     (let [lines-str (str/join "\n"
                       (for [i (range (- end-line scroll-top))]
@@ -125,34 +147,49 @@
   [initial-editor]
   (let [config (create-tui-config)
         editor-state (atom initial-editor)]
+    (log-clear!)
+    (log "=== Editor started ===")
     (try
       (with-open [tui (TuiRunner/create config)]
         (.run tui
           (reify EventHandler
             (handle [this event runner]
+              (log "handle called with event: " (type event))
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
+                  (log "  isCtrlC=" (.isCtrlC ke) " char=" (pr-str (.character ke))
+                       " int=" (int (.character ke)) " hasCtrl=" (.hasCtrl ke)
+                       " code=" (.code ke))
                   ;; Quit on Ctrl+C (either via isCtrlC() or direct char code 3)
                   (if (or (.isCtrlC ke) (= (.character ke) \u0003))
-                    (do (.quit runner) true)
-                    (let [key-str (or (key-event->str ke) "")
-                          ctrl-str (key-event->ctrl-str ke)
-                          k (if (and ctrl-str (not= ctrl-str key-str)) ctrl-str key-str)]
+                    (do (log "  -> QUIT") (.quit runner) true)
+                    (let [k (key-event->str ke)]
+                      (log "  key-string=" (pr-str k))
                       (when (and k (not-empty k))
-                        (let [result (dispatch/handle-key @editor-state k)]
+                        (let [result (try (dispatch/handle-key @editor-state k)
+                                         (catch Exception e
+                                           (log "  DISPATCH ERROR: " (.getMessage e))
+                                           {:editor @editor-state}))]
+                          (log "  result type=" (type result) " has :editor=" (contains? result :editor))
                           (when (map? result)
-                            (let [new-state (if (:editor result) (:editor result) result)]
-                              (reset! editor-state new-state))
+                            (if (:editor result)
+                              (do (reset! editor-state (:editor result))
+                                  (log "  state UPDATED, mode=" (get-in @editor-state [:splits 0 :mode])))
+                              (do (reset! editor-state result)
+                                  (log "  state UPDATED (direct), mode=" (get-in @editor-state [:splits 0 :mode]))))
                             (when (false? (:running @editor-state true))
+                              (log "  -> QUIT (running=false)")
                               (.quit runner)))))
                       true)))
-                false)))
+                (do (log "  NOT a KeyEvent") false))))
           (reify Renderer
             (render [this frame]
               (try
                 (render-editor-frame @editor-state frame)
                 (catch Exception e
+                  (log "RENDER ERROR: " (.getMessage e))
                   (.printStackTrace e)))))))
       (catch Exception e
+        (log "STARTUP ERROR: " (.getMessage e))
         (println "Error running editor:" (.getMessage e))
         (.printStackTrace e)))))
