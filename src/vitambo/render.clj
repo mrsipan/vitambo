@@ -187,7 +187,29 @@
           (reify Renderer
             (render [this frame]
               (try
-                (render-editor-frame @editor-state frame)
+                (let [mode (get-in @editor-state [:splits 0 :mode] mode/normal)
+                      cursor (get-in @editor-state [:splits 0 :cursor] {:row 0 :col 0})
+                      scroll-top (get-in @editor-state [:splits 0 :scroll-top] 0)
+                      ;; Set cursor shape based on mode
+                      shape-code (case mode
+                                   mode/insert "\u001b[6 q"   ;; steady bar (I-beam)
+                                   mode/visual-char "\u001b[2 q" ;; steady block
+                                   mode/visual-line "\u001b[2 q"  ;; steady block
+                                   mode/visual-block "\u001b[2 q" ;; steady block
+                                   mode/command "\u001b[4 q"    ;; steady underline
+                                   mode/search "\u001b[4 q"     ;; steady underline
+                                   "\u001b[2 q")]               ;; steady block (normal)
+                  ;; Send cursor shape ANSI escape
+                  (try (.write (.rawOutput frame) (.getBytes shape-code))
+                       (.flush (.rawOutput frame))
+                       (catch Exception _))
+                  ;; Set cursor position (line row - scroll-top, column)
+                  (let [vis-row (- (:row cursor) scroll-top)
+                        vis-col (+ (:col cursor) 5)]  ;; +5 for line number gutter
+                    (when (and (>= vis-row 0) (< vis-row (.height (.area frame))))
+                      (.setCursorPosition frame vis-col vis-row)))
+                  ;; Render the frame
+                  (render-editor-frame @editor-state frame))
                 (catch Exception e
                   (log "RENDER ERROR: " (.getMessage e))
                   (.printStackTrace e)))))))
