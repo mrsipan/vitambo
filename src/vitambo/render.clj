@@ -171,8 +171,10 @@
                                            {:editor @editor-state}))]
                           (when (map? result)
                             (if (:editor result)
-                              (reset! editor-state (:editor result))
-                              (reset! editor-state result))
+                              (do (log "DISPATCH OK: cursor=" (get-in (:editor result) [:splits 0 :cursor]))
+                                  (reset! editor-state (:editor result)))
+                              (do (log "DISPATCH direct: result keys=" (keys result))
+                                  (reset! editor-state result)))
                             (when (false? (:running @editor-state true))
                               (log "  -> QUIT (running=false)")
                               (.quit runner)))))
