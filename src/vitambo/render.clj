@@ -15,35 +15,41 @@
 (defn- key-event->str
   "Convert a KeyEvent to a string for the dispatcher."
   [^KeyEvent event]
-  (cond
-    (.isQuit event) nil
-    (.isCancel event) "\u001b"
-    (.isDeleteBackward event) "\u007f"
-    (.isSelect event) "\n"
-    :else
-    (let [ch (.character event)]
-      (if (and ch (not= (int ch) 0))
-        (str ch)
-        (let [code (.code event)]
-          (when code
-            (case code
-              (:UP) "k"
-              (:DOWN) "j"
-              (:LEFT) "h"
-              (:RIGHT) "l"
-              (:ENTER :NEWLINE) "\n"
-              (:TAB) "\t"
-              nil)))))))
+  (let [ch (.character event)]
+    (if (and ch (not= (int ch) 0))
+      ;; Regular character
+      (let [c (int ch)]
+        (case c
+          10 "\n"    ;; Enter/Newline
+          13 "\n"    ;; Carriage return
+          27 "\u001b"  ;; Escape
+          8 "\u007f"  ;; Backspace (BS)
+          127 "\u007f" ;; Delete/Backspace (DEL)
+          9 "\t"     ;; Tab
+          (str ch)))
+      ;; Non-character key - check key code
+      (let [code (.code event)]
+        (when code
+          (case code
+            (:UP) "k"
+            (:DOWN) "j"
+            (:LEFT) "h"
+            (:RIGHT) "l"
+            (:ENTER :NEWLINE) "\n"
+            (:TAB) "\t"
+            (:ESCAPE) "\u001b"
+            (:BACKSPACE :DELETE) "\u007f"
+            nil))))))
 
 (defn- key-event->ctrl-str
-  "Get Ctrl+letter code from a KeyEvent."
+  "Get Ctrl+letter code from a KeyEvent.
+   Ctrl+A through Ctrl+Z have codes 1-26, but Tab(9), Enter(10), Esc(27) are excluded."
   [^KeyEvent event]
-  (when (.hasCtrl event)
-    (let [ch (.character event)]
-      (when (and ch (not= (int ch) 0))
-        (let [c (int ch)]
-          (when (and (>= c 1) (<= c 26))
-            (str (char c))))))))
+  (let [ch (.character event)]
+    (when (and ch (not= (int ch) 0))
+      (let [c (int ch)]
+        (when (and (>= c 1) (<= c 26) (not= c 9) (not= c 10) (not= c 13))
+          (str (char c)))))))
 
 (defn render-status-line
   "Create a status line string for the editor."
@@ -126,8 +132,8 @@
             (handle [this event runner]
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
-                  (if (.isQuit ke)
-                    (do (.quit runner) false)
+                  (if (.isCtrlC ke)
+                    (do (.quit runner) true)
                     (let [key-str (or (key-event->str ke) "")
                           ctrl-str (key-event->ctrl-str ke)
                           k (if (and ctrl-str (not= ctrl-str key-str)) ctrl-str key-str)]
@@ -138,7 +144,7 @@
                               (reset! editor-state new-state))
                             (when (false? (:running @editor-state true))
                               (.quit runner)))))
-                      false)))
+                      true)))
                 false)))
           (reify Renderer
             (render [this frame]
