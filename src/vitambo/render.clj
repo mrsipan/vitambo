@@ -170,7 +170,7 @@
                                          (catch Exception e
                                            (log "  DISPATCH ERROR: " (.getMessage e))
                                            {:editor @editor-state}))]
-                          (log "  result type=" (type result) " has :editor=" (contains? result :editor))
+                          (log "  result keys=" (keys result) " :editor keys=" (when (:editor result) (keys (:editor result))) " split cursor=" (get-in (:editor result) [:splits 0 :cursor]) " buf lines=" (get-in (:editor result) [:splits 0 :buffer :lines]) " buf class=" (class (get-in (:editor result) [:splits 0 :buffer])))
                           (when (map? result)
                             (if (:editor result)
                               (do (reset! editor-state (:editor result))
