@@ -40,7 +40,8 @@
     [(:row c) (:col c)]))
 
 (defn- split-count [editor]
-  (or (:count (active-split editor)) 1))
+  (let [c (:count (active-split editor))]
+    (if (and c (pos? c)) c 1)))
 
 ;; ── Normal mode ───────────────────────────────────────────────────
 
