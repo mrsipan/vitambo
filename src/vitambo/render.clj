@@ -153,9 +153,13 @@
     (log "=== Editor started ===")
     (try
       (with-open [tui (TuiRunner/create config)]
+        ;; Show cursor at startup
+        (try (.showCursor (.backend tui)) (catch Exception _))
         (.run tui
           (reify EventHandler
             (handle [this event runner]
+              ;; Keep cursor visible
+              (try (.showCursor (.backend runner)) (catch Exception _))
               (log "handle called with event: " (type event))
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
