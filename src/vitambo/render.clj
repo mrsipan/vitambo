@@ -159,26 +159,20 @@
               (log "handle called with event: " (type event))
               (if (instance? KeyEvent event)
                 (let [^KeyEvent ke event]
-                  (log "  isCtrlC=" (.isCtrlC ke) " char=" (pr-str (.character ke))
-                       " int=" (int (.character ke)) " hasCtrl=" (.hasCtrl ke)
-                       " code=" (.code ke))
                   ;; Quit on Ctrl+C (either via isCtrlC() or direct char code 3)
                   (if (or (.isCtrlC ke) (= (.character ke) \u0003))
                     (do (log "  -> QUIT") (.quit runner) true)
                     (let [k (key-event->str ke)]
                       (log "  key-string=" (pr-str k))
                       (when (and k (not-empty k))
-                        (let [editor-before @editor-state ^::unused _ (log "BEFORE-RESET: cursor=" (get-in editor-before [:splits 0 :cursor]) " lines=" (get-in editor-before [:splits 0 :buffer :lines])) result (try (dispatch/handle-key editor-before k)
+                        (let [result (try (dispatch/handle-key @editor-state k)
                                          (catch Exception e
                                            (log "  DISPATCH ERROR: " (.getMessage e))
                                            {:editor @editor-state}))]
-                          (log "  result keys=" (keys result) " :editor keys=" (when (:editor result) (keys (:editor result))) " split cursor=" (get-in (:editor result) [:splits 0 :cursor]) " buf lines=" (get-in (:editor result) [:splits 0 :buffer :lines]) " buf class=" (class (get-in (:editor result) [:splits 0 :buffer])))
                           (when (map? result)
                             (if (:editor result)
-                              (do (reset! editor-state (:editor result))
-                                  (log "  state UPDATED, mode=" (get-in @editor-state [:splits 0 :mode]) " cursor=" (get-in @editor-state [:splits 0 :cursor])))
-                              (do (reset! editor-state result)
-                                  (log "  state UPDATED (direct), mode=" (get-in @editor-state [:splits 0 :mode]))))
+                              (reset! editor-state (:editor result))
+                              (reset! editor-state result))
                             (when (false? (:running @editor-state true))
                               (log "  -> QUIT (running=false)")
                               (.quit runner)))))
@@ -187,13 +181,24 @@
           (reify Renderer
             (render [this frame]
               (try
-                (render-editor-frame @editor-state frame)
-                ;; Set cursor position - Terminal.draw() will flush this after rendering
                 (let [cursor (get-in @editor-state [:splits 0 :cursor] {:row 0 :col 0})
-                      scroll-top (get-in @editor-state [:splits 0 :scroll-top] 0)]
-                  (.setCursorPosition frame 
-                    (+ (:col cursor) 5)      ;; column + gutter offset
-                    (- (:row cursor) scroll-top)))  ;; row - scroll
+                      scroll-top (get-in @editor-state [:splits 0 :scroll-top] 0)
+                      mode (get-in @editor-state [:splits 0 :mode] mode/normal)
+                      vis-row (- (:row cursor) scroll-top)
+                      vis-col (+ (:col cursor) 5)]
+                  ;; Render content first
+                  (render-editor-frame @editor-state frame)
+                  ;; Show cursor (some terminals hide it)
+                  (try (let [raw (.rawOutput frame)]
+                         (.write raw (.getBytes "\u001b[?25h" "UTF-8"))
+                         ;; Set cursor style based on mode  
+                         (.write raw (.getBytes (case mode
+                                                  mode/insert "\u001b[6 q"   ;; bar
+                                                  "\u001b[2 q") "UTF-8"))   ;; block
+                         (.flush raw))
+                       (catch Exception _))
+                  ;; Position cursor via Frame (handled by Terminal after render)
+                  (.setCursorPosition frame vis-col vis-row))
                 (catch Exception e
                   (log "RENDER ERROR: " (.getMessage e))
                   (.printStackTrace e)))))))
